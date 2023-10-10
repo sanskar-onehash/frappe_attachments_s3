@@ -196,7 +196,12 @@ class S3Operations(object):
 
         return url
 
-
+@frappe.whitelist()
+def get_total_file_sizes():
+    # return size in MB of all files public and private in the system
+    a= frappe.db.sql("""SELECT SUM(file_size) FROM `tabFile`""")[0][0] or 0
+    return a
+    
 @frappe.whitelist()
 def file_upload_to_s3(doc, method):
     """
