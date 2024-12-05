@@ -36,10 +36,18 @@ class S3Operations(object):
                 region_name=self.s3_settings_doc.region_name,
                 endpoint_url="https://s3." + self.s3_settings_doc.region_name + ".amazonaws.com",
             )
+            self.BUCKET = self.s3_settings_doc.bucket_name
+            self.folder_name = self.s3_settings_doc.folder_name
         else:
-            self.S3_CLIENT = boto3.client('s3')
-        self.BUCKET = self.s3_settings_doc.bucket_name
-        self.folder_name = self.s3_settings_doc.folder_name
+            self.S3_CLIENT = boto3.client(
+                's3',
+                aws_access_key_id=frappe.conf.aws_access_key_id,
+                aws_secret_access_key=frappe.conf.aws_secret_access_key,
+                region_name=frappe.conf.aws_bucket_region_name,
+                endpoint_url="https://s3." + frappe.conf.aws_bucket_region_name + ".amazonaws.com",
+            )
+            self.BUCKET = frappe.conf.aws_bucket_name
+            self.folder_name = "site_files"
 
     def strip_special_chars(self, file_name):
         """
@@ -153,18 +161,36 @@ class S3Operations(object):
             'S3 File Attachment',
             'S3 File Attachment',
         )
+        if (
+            self.s3_settings_doc.aws_key and
+            self.s3_settings_doc.aws_secret
+        ):
+            if self.s3_settings_doc.delete_file_from_cloud:
+                S3_CLIENT = boto3.client(
+                    's3',
+                    aws_access_key_id=self.s3_settings_doc.aws_key,
+                    aws_secret_access_key=self.s3_settings_doc.aws_secret,
+                    region_name=self.s3_settings_doc.region_name,
+                )
 
-        if self.s3_settings_doc.delete_file_from_cloud:
+                try:
+                    S3_CLIENT.delete_object(
+                        Bucket=self.s3_settings_doc.bucket_name,
+                        Key=key
+                    )
+                except ClientError:
+                    frappe.throw(frappe._("Access denied: Could not delete file"))
+        else:
             S3_CLIENT = boto3.client(
                 's3',
-                aws_access_key_id=self.s3_settings_doc.aws_key,
-                aws_secret_access_key=self.s3_settings_doc.aws_secret,
-                region_name=self.s3_settings_doc.region_name,
+                aws_access_key_id=frappe.conf.aws_access_key_id,
+                aws_secret_access_key=frappe.conf.aws_secret_access_key,
+                region_name=frappe.conf.aws_bucket_region_name,
             )
 
             try:
                 S3_CLIENT.delete_object(
-                    Bucket=self.s3_settings_doc.bucket_name,
+                    Bucket=frappe.conf.aws_bucket_name,
                     Key=key
                 )
             except ClientError:
