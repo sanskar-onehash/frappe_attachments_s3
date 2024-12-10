@@ -47,7 +47,10 @@ class S3Operations(object):
                 endpoint_url="https://s3." + frappe.conf.aws_bucket_region_name + ".amazonaws.com",
             )
             self.BUCKET = frappe.conf.aws_bucket_name
-            self.folder_name = "site_files"
+            if frappe.conf.domain == "onehash.ai":
+                self.folder_name = "production/site_files"
+            else:
+                self.folder_name = "staging/site_files"
 
     def strip_special_chars(self, file_name):
         """
