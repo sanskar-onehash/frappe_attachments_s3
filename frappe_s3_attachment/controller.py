@@ -1,9 +1,6 @@
 from __future__ import unicode_literals
 
-import random
-import string
 import datetime
-import re
 import os
 from frappe.utils import get_url, get_url_to_form
 import boto3
@@ -90,15 +87,6 @@ class S3Operations(object):
         day = today.strftime("%d")
 
         doc_path = None
-        try:
-            doc_path = frappe.db.get_value(
-                parent_doctype,
-                filters={'name': parent_name},
-                fieldname=['s3_folder_path']
-            )
-            doc_path = doc_path.rstrip('/').lstrip('/')
-        except Exception as e:
-            print(e)
 
         if not doc_path:
             if self.folder_name:
@@ -312,7 +300,7 @@ def generate_signed_url(key=None, file_name=None):
     return
 
 
-def upload_existing_files_s3(name, file_name):
+def upload_existing_files_s3(name):
     """
     Function to upload all existing files.
     """
@@ -344,13 +332,16 @@ def upload_existing_files_s3(name, file_name):
                 s3_upload.BUCKET,
                 key
             )
+
+        # Remove file from local.
         os.remove(file_path)
-        doc = frappe.db.sql("""UPDATE `tabFile` SET file_url=%s, folder=%s,
-            old_parent=%s, content_hash=%s WHERE name=%s""", (
-            file_url, 'Home/Attachments', 'Home/Attachments', key, doc.name))
+
+        frappe.db.sql(
+            """UPDATE `tabFile` SET file_url=%s, folder=%s,
+            old_parent=%s, content_hash=%s WHERE name=%s""",
+            (file_url, "Home/Attachments", "Home/Attachments", key, doc.name),
+        )
         frappe.db.commit()
-    else:
-        pass
 
 
 def s3_file_regex_match(file_url):
@@ -368,15 +359,15 @@ def migrate_existing_files():
     """
     Function to migrate the existing files to s3.
     """
-    # get_all_files_from_public_folder_and_upload_to_s3
+
     files_list = frappe.get_all(
         'File',
-        fields=['name', 'file_url', 'file_name']
+        fields=['name', 'file_url']
     )
     for file in files_list:
         if file['file_url']:
             if not s3_file_regex_match(file['file_url']):
-                upload_existing_files_s3(file['name'], file['file_name'])
+                upload_existing_files_s3(file['name'])
     return True
 
 
