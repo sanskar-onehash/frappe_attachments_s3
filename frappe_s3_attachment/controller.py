@@ -3,8 +3,10 @@ from __future__ import unicode_literals
 import random
 import string
 import datetime
+import requests
 import re
 import os
+from urllib.parse import urlparse
 from frappe.utils import get_url, get_url_to_form
 import boto3
 import frappe
@@ -223,7 +225,6 @@ class S3Operations(object):
 
         return url
 
-
 @frappe.whitelist()
 def file_upload_to_s3(doc, method):
     """
@@ -231,6 +232,34 @@ def file_upload_to_s3(doc, method):
     """
     s3_upload = S3Operations()
     path = doc.file_url
+    if path.startswith(("http://", "https://")):
+        response = requests.get(path, stream=True)
+        if response.status_code == 200:
+            parsed_url = urlparse(path)
+            file_name = os.path.basename(parsed_url.path)
+            site_path = frappe.utils.get_site_path()
+
+            # Define local path (match Frappe's expected storage location)
+            if doc.is_private:
+                file_path = os.path.join(site_path, "private", "files", file_name)
+            else:
+                file_path = os.path.join(site_path, "public", "files", file_name)
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+            # Save the file locally
+            with open(file_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=1024):
+                    f.write(chunk)
+            
+            # Update path to local
+            if not doc.is_private:
+                path = '/files/' + file_name
+            else:
+                path = '/private/files/' + file_name
+        else:
+            frappe.throw(f"Failed to download file from {path} (Status: {response.status_code})")
     site_path = frappe.utils.get_site_path()
     if doc.doctype == "File" and not doc.attached_to_doctype:
         parent_doctype = doc.doctype
@@ -252,7 +281,7 @@ def file_upload_to_s3(doc, method):
 
         if doc.is_private:
             method = "frappe_s3_attachment.controller.generate_file"
-            site_base_url = frappe.local.conf.site_base_url if frappe.local.conf.site_base_url else ""
+            site_base_url = get_url()
             file_url = """{0}/api/method/{1}?key={2}&file_name={3}""".format(site_base_url, method, key, filename)
         else:
             file_url = '{}/{}/{}'.format(
@@ -327,7 +356,7 @@ def upload_existing_files_s3(name):
 
         if doc.is_private:
             method = "frappe_s3_attachment.controller.generate_file"
-            site_base_url = frappe.local.conf.site_base_url if frappe.local.conf.site_base_url else ""
+            site_base_url = get_url()
             file_url = """{0}/api/method/{1}?key={2}""".format(site_base_url, method, key)
         else:
             file_url = '{}/{}/{}'.format(
