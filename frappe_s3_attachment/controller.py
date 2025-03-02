@@ -226,9 +226,6 @@ class S3Operations(object):
 
         return url
 
-frappe.utils.logger.set_log_level("DEBUG")
-logger = frappe.logger("api", allow_site=True, file_count=50)
-
 def extract_key_and_file_name(file_url):
     parsed_url = urlparse(file_url)
     query_params = parse_qs(parsed_url.query)
