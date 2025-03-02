@@ -8,6 +8,7 @@ import re
 import os
 from urllib.parse import urlparse
 from frappe.utils import get_url, get_url_to_form
+from urllib.parse import parse_qs, urlparse
 import boto3
 import frappe
 
@@ -225,6 +226,18 @@ class S3Operations(object):
 
         return url
 
+frappe.utils.logger.set_log_level("DEBUG")
+logger = frappe.logger("api", allow_site=True, file_count=50)
+
+def extract_key_and_file_name(file_url):
+    parsed_url = urlparse(file_url)
+    query_params = parse_qs(parsed_url.query)
+
+    key = query_params.get("key", [None])[0]
+    file_name = query_params.get("file_name", [None])[0]
+
+    return key, file_name
+
 @frappe.whitelist()
 def file_upload_to_s3(doc, method):
     """
@@ -233,10 +246,22 @@ def file_upload_to_s3(doc, method):
     s3_upload = S3Operations()
     path = doc.file_url
     if path.startswith(("http://", "https://")):
-        response = requests.get(path, stream=True)
+        if "frappe_s3_attachment.controller.generate_file" in path:
+            site_base_url = frappe.utils.get_url()
+            key, file_name = extract_key_and_file_name(path)
+            signed_url_request = f"{site_base_url}/api/method/frappe_s3_attachment.controller.generate_signed_url?key={key}&file_name={file_name}"
+            response = requests.get(signed_url_request)
+            
+            if response.status_code == 200:
+                signed_url = response.json().get("message")
+            else:
+                frappe.throw(f"Failed to generate signed URL: {response.status_code}")
+        else:
+            signed_url = path
+            file_name = doc.file_name
+
+        response = requests.get(signed_url, stream=True)
         if response.status_code == 200:
-            parsed_url = urlparse(path)
-            file_name = os.path.basename(parsed_url.path)
             site_path = frappe.utils.get_site_path()
 
             # Define local path (match Frappe's expected storage location)
@@ -318,7 +343,7 @@ def generate_file(key=None, file_name=None):
         frappe.local.response['body'] = "Key not found."
     return
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def generate_signed_url(key=None, file_name=None):
     """
     Function to stream file from s3.
