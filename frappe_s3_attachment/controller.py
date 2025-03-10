@@ -235,15 +235,11 @@ def extract_key_and_file_name(file_url):
 
     return key, file_name
 
-frappe.utils.logger.set_log_level("DEBUG")
-logger = frappe.logger("api", allow_site=True, file_count=50)
-
 @frappe.whitelist()
 def file_upload_to_s3(doc, method):
     """
     check and upload files to s3. the path check and
     """
-    logger.info(doc.__dict__)
     if doc.is_folder == True:
         return
     s3_upload = S3Operations()
