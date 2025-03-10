@@ -235,14 +235,20 @@ def extract_key_and_file_name(file_url):
 
     return key, file_name
 
+frappe.utils.logger.set_log_level("DEBUG")
+logger = frappe.logger("api", allow_site=True, file_count=50)
+
 @frappe.whitelist()
 def file_upload_to_s3(doc, method):
     """
     check and upload files to s3. the path check and
     """
+    logger.info(doc.__dict__)
+    if doc.is_folder == True:
+        return
     s3_upload = S3Operations()
     path = doc.file_url
-    if path.startswith(("http://", "https://")):
+    if path and path.startswith(("http://", "https://")):
         if "frappe_s3_attachment.controller.generate_file" in path:
             site_base_url = frappe.utils.get_url()
             key, file_name = extract_key_and_file_name(path)
@@ -313,7 +319,7 @@ def file_upload_to_s3(doc, method):
             )
         frappe.db.sql("""UPDATE `tabFile` SET file_url=%s, folder=%s,
             old_parent=%s, content_hash=%s WHERE name=%s""", (
-            file_url, 'Home/Attachments', 'Home/Attachments', key, doc.name))
+            file_url, doc.folder, doc.old_parent, key, doc.name))
 
         # From this PR, this code is unuseful
         # https://github.com/zerodha/frappe-attachments-s3/pull/39
@@ -427,6 +433,8 @@ def migrate_existing_files():
 
 def delete_from_cloud(doc, method):
     """Delete file from s3"""
+    if doc.is_folder == True:
+        return
     s3 = S3Operations()
     s3.delete_from_s3(doc.content_hash)
 
