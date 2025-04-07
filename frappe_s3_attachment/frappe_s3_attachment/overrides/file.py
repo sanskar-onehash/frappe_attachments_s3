@@ -5,13 +5,10 @@ import urllib.parse
 import frappe
 from frappe import _
 
-from frappe.utils import call_hook_method, cint, get_files_path, get_hook_method, get_url
+from frappe.utils import cint
 from frappe.core.doctype.file.file import File
 from frappe.core.doctype.file.utils import decode_file_content
 from frappe_s3_attachment.controller import extract_key_and_file_name
-
-frappe.utils.logger.set_log_level("DEBUG")
-logger = frappe.logger("api", allow_site=True, file_count=50)
 
 class FileOverride(File):
     def set_is_private(self):
@@ -73,11 +70,9 @@ class FileOverride(File):
                 if self.decode:
                     self._content = decode_file_content(self._content)
                     self.decode = False
-                # self.content = None # TODO: This needs to happen; make it happen somehow
                 return self._content
 
             file_path = self.get_full_path()
-            # read the file
             with open(file_path, mode="rb") as f:
                 self._content = f.read()
 
