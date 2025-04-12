@@ -234,7 +234,7 @@ def extract_key_and_file_name(file_url):
     return key, file_name
 
 @frappe.whitelist()
-def transfer_file(doc, method):
+def handle_privacy_toggle(doc, method):
     """
     Transfer file from public to private and vice-versa
     """
