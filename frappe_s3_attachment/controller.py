@@ -290,6 +290,9 @@ def handle_privacy_toggle(doc, method):
 
                 doc.file_url = file_url
                 doc.content_hash = key
+                if doc.attached_to_doctype and doc.attached_to_field:
+                    frappe.db.set_value(doc.attached_to_doctype, doc.attached_to_name, doc.attached_to_field, file_url, update_modified=False)
+
         else:
             frappe.throw(f"Failed to get file from {path} (Status: {response.status_code})")
 
